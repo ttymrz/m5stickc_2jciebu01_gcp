@@ -21,6 +21,8 @@ static float hum;
 static uint16_t light;
 static float pressure;
 
+TaskHandle_t xhandle_blescan = NULL;
+
 /**
  * Scan for BLE servers and find the first one that advertises the service we are looking for.
  */
@@ -60,6 +62,14 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 	}	  // onResult
 };		  // MyAdvertisedDeviceCallbacks
 
+void bleScanTask(void *arg)
+{
+	while(true) {
+		BLEDevice::getScan()->start(5, false);
+		delay(5000);
+	}
+}
+
 void setup()
 {
 	M5.begin();
@@ -93,10 +103,11 @@ void setup()
 	// scan to run for 5 seconds.
 	BLEScan *pBLEScan = BLEDevice::getScan();
 	pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-	pBLEScan->setInterval(1349);
-	pBLEScan->setWindow(449);
+	pBLEScan->setInterval(100);
+	pBLEScan->setWindow(90);
 	pBLEScan->setActiveScan(true);
-	pBLEScan->start(5, false);
+
+	xTaskCreate(bleScanTask, "BLEScanTask", 1024 * 2, (void *)0, 5, &xhandle_blescan);
 } // End of setup.
 
 // This is the Arduino main loop function.
@@ -125,12 +136,5 @@ void loop()
 	M5.Lcd.println("");
 	M5.Lcd.printf("pressure: %g ", pressure);
 
-	// If we are connected to a peer BLE Server, update the characteristic each time we are reached
-	// with the current time since boot.
-	if (doScan)
-	{
-		BLEDevice::getScan()->start(0); // this is just eample to start scan after disconnect, most likely there is better way to do it in arduino
-	}
-
-	delay(5000); // Delay a second between loops.
+	delay(1000); // Delay a second between loops.
 } // End of loop
