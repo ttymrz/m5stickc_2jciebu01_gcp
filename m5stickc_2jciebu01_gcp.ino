@@ -20,6 +20,8 @@ static float temp;
 static float hum;
 static uint16_t light;
 static float pressure;
+static uint16_t etvoc;
+static uint16_t eco2;
 
 TaskHandle_t xhandle_blescan = NULL;
 
@@ -54,6 +56,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 			hum = (float)((payload[12] << 8) | payload[11]) / 100.0;
 			light = (uint16_t)((payload[14] << 8) | payload[13]);
 			pressure = (float)((payload[18] << 24) | (payload[17] << 16) | (payload[16] << 8) | payload[15]) / 1000.0;
+			etvoc = (uint16_t)((payload[22] << 8) | payload[21]);
+			eco2 = (uint16_t)((payload[24] << 8) | payload[23]);
 
 			BLEDevice::getScan()->stop();
 			//doConnect = true;
@@ -151,6 +155,9 @@ void loop()
 		M5.Lcd.println("");
 		M5.Lcd.printf("lx: %4d     ", light);
 		M5.Lcd.printf("press: %4.1f", pressure);
+		M5.Lcd.println("");
+		M5.Lcd.printf("eTVOC: %4d ", etvoc);
+		M5.Lcd.printf("eCO2: %4d", eco2);
 	}
 
 	if (displayoffcount == 1)
