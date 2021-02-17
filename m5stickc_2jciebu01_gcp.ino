@@ -10,11 +10,7 @@ static char wifi_ssid[33];
 static char wifi_key[65];
 static char omronSensorAddress[18];
 
-static boolean doConnect = false;
-static boolean connected = false;
-static boolean doScan = false;
-static BLERemoteCharacteristic *pRemoteCharacteristic;
-static BLEAdvertisedDevice *myDevice;
+static boolean bleDetect;
 
 static float temp;
 static float hum;
@@ -39,8 +35,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 		Serial.println(advertisedDevice.toString().c_str());
 		String deviceAddress = advertisedDevice.getAddress().toString().c_str();
 
-		// We have found a device, let us now see if it contains the service we are looking for.
-		//if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
+		// We have found a device, let us now see if it contains the address we are looking for.
 		if (deviceAddress.equalsIgnoreCase(omronSensorAddress))
 		{
 			uint8_t *payload = advertisedDevice.getPayload();
@@ -60,16 +55,16 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 			eco2 = (uint16_t)((payload[24] << 8) | payload[23]);
 
 			BLEDevice::getScan()->stop();
-			//doConnect = true;
-			doScan = true;
-		} // Found our server
-	}	  // onResult
-};		  // MyAdvertisedDeviceCallbacks
+			bleDetect = true;
+		}
+	}
+};
 
 void bleScanTask(void *arg)
 {
 	while (true)
 	{
+		bleDetect = false;
 		BLEDevice::getScan()->start(5, false);
 		delay(5000);
 	}
@@ -79,7 +74,6 @@ void setup()
 {
 	M5.begin();
 	Serial.begin(115200);
-	Serial.println("Starting Arduino BLE Client application...");
 	M5.Axp.ScreenBreath(8);
 	M5.Lcd.setRotation(3);
 	M5.Lcd.setCursor(0, 0, 2);
@@ -101,11 +95,8 @@ void setup()
 
 	configTime(9 * 3600, 0, "ntp.nict.jp"); // Set ntp time to local
 
+	M5.Lcd.println("Start BLEScan");
 	BLEDevice::init("");
-
-	// Retrieve a Scanner and set the callback we want to use to be informed when we
-	// have detected a new device.  Specify that we want active scanning and start the
-	// scan to run for 5 seconds.
 	BLEScan *pBLEScan = BLEDevice::getScan();
 	pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
 	pBLEScan->setInterval(100);
