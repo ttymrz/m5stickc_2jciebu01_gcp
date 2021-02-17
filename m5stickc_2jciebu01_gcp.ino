@@ -115,13 +115,11 @@ void setup()
 // This is the Arduino main loop function.
 void loop()
 {
-	static uint8_t displayoffcount = 50;
+	static uint8_t displayoffcount = 100;
 
 	M5.update();
 	if (M5.BtnA.wasReleased())
 	{
-		Serial.print("BtnA: ");
-		Serial.println(displayoffcount);
 		if (displayoffcount == 0)
 		{
 			// wake up display and turn on back light
@@ -129,7 +127,7 @@ void loop()
 			delay(150);
 			M5.Axp.SetLDO2(true);
 		}
-		displayoffcount = 50;
+		displayoffcount = 100;
 	}
 
 	if (0 < displayoffcount)
@@ -148,13 +146,11 @@ void loop()
 
 		M5.Lcd.setCursor(0, 0, 2);
 		M5.Lcd.println(now);
-		M5.Lcd.printf("temp: %g ", temp);
+		M5.Lcd.printf("temp: %2.1f  ", temp);
+		M5.Lcd.printf("hum: %2.1f", hum);
 		M5.Lcd.println("");
-		M5.Lcd.printf("hum: %g ", hum);
-		M5.Lcd.println("");
-		M5.Lcd.printf("lx: %d ", light);
-		M5.Lcd.println("");
-		M5.Lcd.printf("pressure: %g ", pressure);
+		M5.Lcd.printf("lx: %4d     ", light);
+		M5.Lcd.printf("press: %4.1f", pressure);
 	}
 
 	if (displayoffcount == 1)
