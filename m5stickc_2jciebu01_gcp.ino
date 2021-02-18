@@ -20,6 +20,7 @@ static uint16_t etvoc;
 static uint16_t eco2;
 
 TaskHandle_t xhandle_blescan = NULL;
+TaskHandle_t xhandle_ledblink = NULL;
 
 /**
  * Scan for BLE servers and find the first one that advertises the service we are looking for.
@@ -59,6 +60,18 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 		}
 	}
 };
+
+void ledBlinkingTask(void *arg)
+{
+	pinMode(M5_LED,   OUTPUT);
+	while (true)
+	{
+		digitalWrite(M5_LED, LOW);
+		delay(1);
+		digitalWrite(M5_LED, HIGH);
+		delay(4999);
+	}
+}
 
 void bleScanTask(void *arg)
 {
@@ -105,6 +118,7 @@ void setup()
 	pBLEScan->setActiveScan(true);
 
 	xTaskCreate(bleScanTask, "BLEScanTask", 1024 * 2, (void *)0, 5, &xhandle_blescan);
+	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 5, &xhandle_ledblink);
 	M5.Lcd.fillScreen(BLACK);
 } // End of setup.
 
