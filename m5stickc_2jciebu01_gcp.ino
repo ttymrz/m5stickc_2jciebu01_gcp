@@ -141,10 +141,10 @@ void loop()
 
 		M5.Lcd.setCursor(0, 0, 2);
 		M5.Lcd.println(now);
-		M5.Lcd.printf("temp: %2.1f  ", temp);
+		M5.Lcd.printf("temp: %2.1f ", temp);
 		M5.Lcd.printf("hum: %2.1f", hum);
 		M5.Lcd.println("");
-		M5.Lcd.printf("lx: %4d     ", light);
+		M5.Lcd.printf("lx: %4d    ", light);
 		M5.Lcd.printf("press: %4.1f", pressure);
 		M5.Lcd.println("");
 		M5.Lcd.printf("eTVOC: %4d ", etvoc);
