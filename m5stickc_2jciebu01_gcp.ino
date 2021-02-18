@@ -74,6 +74,7 @@ void setup()
 {
 	M5.begin();
 	Serial.begin(115200);
+	Serial.println("Starting M5StickC 2JCE-BU1 GCP App...");
 	M5.Axp.ScreenBreath(8);
 	M5.Lcd.setRotation(3);
 	M5.Lcd.setCursor(0, 0, 2);
