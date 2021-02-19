@@ -42,18 +42,15 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 			uint8_t *payload = advertisedDevice.getPayload();
 			size_t paylen = advertisedDevice.getPayloadLength();
 
-			Serial.print("Payload: ");
-			for (uint32_t i = 0; i < paylen; i++)
+			if (31 <= paylen)
 			{
-				Serial.printf("%02X", payload[i]);
+				temp = (float)((payload[10] << 8) | payload[9]) / 100.0;
+				hum = (float)((payload[12] << 8) | payload[11]) / 100.0;
+				light = (uint16_t)((payload[14] << 8) | payload[13]);
+				pressure = (float)((payload[18] << 24) | (payload[17] << 16) | (payload[16] << 8) | payload[15]) / 1000.0;
+				etvoc = (uint16_t)((payload[22] << 8) | payload[21]);
+				eco2 = (uint16_t)((payload[24] << 8) | payload[23]);
 			}
-			Serial.println("");
-			temp = (float)((payload[10] << 8) | payload[9]) / 100.0;
-			hum = (float)((payload[12] << 8) | payload[11]) / 100.0;
-			light = (uint16_t)((payload[14] << 8) | payload[13]);
-			pressure = (float)((payload[18] << 24) | (payload[17] << 16) | (payload[16] << 8) | payload[15]) / 1000.0;
-			etvoc = (uint16_t)((payload[22] << 8) | payload[21]);
-			eco2 = (uint16_t)((payload[24] << 8) | payload[23]);
 
 			BLEDevice::getScan()->stop();
 			bleDetect = true;
