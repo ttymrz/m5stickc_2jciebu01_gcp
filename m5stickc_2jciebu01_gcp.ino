@@ -85,6 +85,8 @@ void bleScanTask(void *arg)
 
 void setup()
 {
+	uint8_t mac[6];
+
 	M5.begin();
 	Serial.begin(115200);
 	Serial.println("Starting M5StickC 2JCE-BU1 GCP App...");
@@ -100,6 +102,10 @@ void setup()
 
 	M5.Lcd.printf("Connecting to %s ", wifi_ssid);
 	WiFi.begin(wifi_ssid, wifi_key);
+	WiFi.macAddress(mac);
+	Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+				  mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+	Serial.println("");
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
