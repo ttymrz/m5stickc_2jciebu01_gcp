@@ -63,7 +63,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 
 void ledBlinkingTask(void *arg)
 {
-	pinMode(M5_LED,   OUTPUT);
+	pinMode(M5_LED, OUTPUT);
 	while (true)
 	{
 		digitalWrite(M5_LED, LOW);
@@ -117,8 +117,8 @@ void setup()
 	pBLEScan->setWindow(90);
 	pBLEScan->setActiveScan(true);
 
-	xTaskCreate(bleScanTask, "BLEScanTask", 1024 * 2, (void *)0, 5, &xhandle_blescan);
-	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 5, &xhandle_ledblink);
+	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink);
+	xTaskCreate(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan);
 	M5.Lcd.fillScreen(BLACK);
 } // End of setup.
 
