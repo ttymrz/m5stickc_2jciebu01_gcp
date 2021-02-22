@@ -13,7 +13,6 @@
 #include <CloudIoTCoreMqtt.h>
 #include "ciotc_config.h"
 
-Preferences preferences;
 static char wifi_ssid[33];
 static char wifi_key[65];
 static char omronSensorAddress[18];
@@ -68,7 +67,7 @@ void setupCloudIoT()
 
 	netClient = new WiFiClientSecure();
 	mqttClient = new MQTTClient(1024);
-	mqttClient->setOptions(180*2, true, 1000*2); // keepAlive, cleanSession, timeout
+	mqttClient->setOptions(180 * 2, true, 1000 * 2); // keepAlive, cleanSession, timeout
 	mqtt = new CloudIoTCoreMqtt(mqttClient, netClient, device);
 	mqtt->setUseLts(true);
 	mqtt->startMQTT();
@@ -159,6 +158,7 @@ void cloudIoTTask(void *arg)
 
 void setup()
 {
+	Preferences preferences;
 	uint8_t mac[6];
 
 	M5.begin();
