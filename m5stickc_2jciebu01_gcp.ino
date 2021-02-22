@@ -3,7 +3,15 @@
 #include <Preferences.h>
 #include "time.h"
 #include "BLEDevice.h"
-//#include "BLEScan.h"
+#include <Client.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+
+#include <MQTT.h>
+
+#include <CloudIoTCore.h>
+#include <CloudIoTCoreMqtt.h>
+#include "ciotc_config.h"
 
 Preferences preferences;
 static char wifi_ssid[33];
@@ -21,6 +29,51 @@ static uint16_t eco2;
 
 TaskHandle_t xhandle_blescan = NULL;
 TaskHandle_t xhandle_ledblink = NULL;
+TaskHandle_t xhandle_cloudiot = NULL;
+
+void messageReceived(String &topic, String &payload)
+{
+	Serial.println("incoming: " + topic + " - " + payload);
+}
+
+// Initialize MQTT for this board
+Client *netClient;
+CloudIoTCoreDevice *device;
+CloudIoTCoreMqtt *mqtt;
+MQTTClient *mqttClient;
+unsigned long iat = 0;
+String jwt;
+
+///////////////////////////////
+// Helpers specific to this board
+///////////////////////////////
+String getDefaultSensor()
+{
+	return "Wifi: " + String(WiFi.RSSI()) + "db";
+}
+
+String getJwt()
+{
+	iat = time(nullptr);
+	Serial.println("Refreshing JWT");
+	jwt = device->createJWT(iat, jwt_exp_secs);
+	return jwt;
+}
+
+void setupCloudIoT()
+{
+	device = new CloudIoTCoreDevice(
+		project_id, location, registry_id, device_id,
+		private_key_str);
+
+	netClient = new WiFiClientSecure();
+	mqttClient = new MQTTClient(1024);
+	mqttClient->setOptions(180*2, true, 1000*2); // keepAlive, cleanSession, timeout
+	mqtt = new CloudIoTCoreMqtt(mqttClient, netClient, device);
+	mqtt->setUseLts(true);
+	mqtt->startMQTT();
+	mqtt->mqttConnect();
+}
 
 /**
  * Scan for BLE servers and find the first one that advertises the service we are looking for.
@@ -32,8 +85,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 	 */
 	void onResult(BLEAdvertisedDevice advertisedDevice)
 	{
-		Serial.print("BLE Advertised Device found: ");
-		Serial.println(advertisedDevice.toString().c_str());
+		// Serial.print("BLE Advertised Device found: ");
+		// Serial.println(advertisedDevice.toString().c_str());
 		String deviceAddress = advertisedDevice.getAddress().toString().c_str();
 
 		// We have found a device, let us now see if it contains the address we are looking for.
@@ -80,6 +133,30 @@ void bleScanTask(void *arg)
 	}
 }
 
+void cloudIoTTask(void *arg)
+{
+	while (true)
+	{
+		delay(5000);
+		// mqtt->loop();
+		// delay(10);
+		if (WiFi.status() != WL_CONNECTED)
+		{
+			Serial.println("WiFi reconnect");
+			WiFi.begin(wifi_ssid, wifi_key);
+			delay(500);
+		}
+		if (!mqttClient->connected())
+		{
+			Serial.println("cloud IoT reconnect");
+			mqtt->mqttConnect();
+		}
+		Serial.print("publish: ");
+		Serial.println(getDefaultSensor());
+		mqtt->publishTelemetry(getDefaultSensor());
+	}
+}
+
 void setup()
 {
 	uint8_t mac[6];
@@ -95,6 +172,7 @@ void setup()
 	preferences.getString("ssid", wifi_ssid, sizeof(wifi_ssid));
 	preferences.getString("key", wifi_key, sizeof(wifi_key));
 	preferences.getString("senaddr", omronSensorAddress, sizeof(omronSensorAddress));
+	preferences.getString("privatekey", private_key_str, sizeof(private_key_str));
 	preferences.end();
 
 	M5.Lcd.printf("Connecting to %s ", wifi_ssid);
@@ -103,6 +181,8 @@ void setup()
 	Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X",
 				  mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
 	Serial.println("");
+	sprintf(device_id, "m%02X%02X%02X%02X%02X%02X",
+			mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
@@ -111,6 +191,10 @@ void setup()
 	M5.Lcd.println(" CONNECTED");
 
 	configTime(9 * 3600, 0, "ntp.nict.jp"); // Set ntp time to local
+	delay(5000);
+	M5.Lcd.println("Setup CloudIoT");
+	setupCloudIoT();
+	delay(5000);
 
 	M5.Lcd.println("Start BLEScan");
 	BLEDevice::init("");
@@ -122,6 +206,7 @@ void setup()
 
 	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink);
 	xTaskCreate(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan);
+	xTaskCreate(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot);
 	M5.Lcd.fillScreen(BLACK);
 } // End of setup.
 

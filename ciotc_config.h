@@ -15,22 +15,19 @@
 // This file contains your configuration used to connect to Cloud IoT Core
 
 // Wifi network details.
-const char *ssid = "SSID";
-const char *password = "PASSWORD";
+// const char *ssid = "SSID";
+// const char *password = "PASSWORD";
 
 // Cloud iot details.
-const char *project_id = "project-id";
+const char *project_id = "m5stickc-iot";
 const char *location = "us-central1";
-const char *registry_id = "my-registry";
-const char *device_id = "my-esp32-device";
+const char *registry_id = "m5stickc-iot-registry";
+char device_id[14];
 
 // Configuration for NTP
-const char* ntp_primary = "pool.ntp.org";
-const char* ntp_secondary = "time.nist.gov";
+// const char* ntp_primary = "pool.ntp.org";
+// const char* ntp_secondary = "time.nist.gov";
 
-#ifndef LED_BUILTIN
-#define LED_BUILTIN 13
-#endif
 
 // To get the private key run (where private-key.pem is the ec private key
 // used to create the certificate uploaded to google cloud iot):
@@ -40,10 +37,7 @@ const char* ntp_secondary = "time.nist.gov";
 // of hex digits). If it's bigger and it starts with "00:" delete the "00:". If
 // it's smaller add "00:" to the start. If it's too big or too small something
 // is probably wrong with your key.
-const char *private_key_str =
-    "6e:b8:17:35:c7:fc:6b:d7:a9:cb:cb:49:7f:a0:67:"
-    "63:38:b0:90:57:57:e0:c0:9a:e8:6f:06:0c:d9:ee:"
-    "31:41";
+char private_key_str[96];
 
 // Time (seconds) to expire token += 20 minutes for drift
 const int jwt_exp_secs = 60*20; // Maximum 24H (3600*24)
@@ -84,6 +78,7 @@ const char *root_cert =
     "94aDC+EkNlHh3pOmQ/V89MBiF1xDHbZZ1gB0GszYKPHec9omSwQ5HbIDV3uf3/DQ\n"
     "his=\n"
     "-----END CERTIFICATE-----\n";
+
 
 // In case we ever need extra topics
 const int ex_num_topics = 0;
