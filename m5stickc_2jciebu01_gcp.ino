@@ -17,8 +17,10 @@ static char wifi_ssid[33];
 static char wifi_key[65];
 static char omronSensorAddress[18];
 
-static boolean bleDetect;
+static boolean bleDetect = true;
+static boolean networkerr = false;
 
+static time_t timestamp;
 static float temp;
 static float hum;
 static uint16_t light;
@@ -26,10 +28,12 @@ static float pressure;
 static uint16_t etvoc;
 static uint16_t eco2;
 
+SemaphoreHandle_t xMutexWL = NULL;
 TaskHandle_t xhandle_blescan = NULL;
 TaskHandle_t xhandle_ledblink = NULL;
 TaskHandle_t xhandle_cloudiot = NULL;
 
+// The MQTT callback function for commands and configuration updates
 void messageReceived(String &topic, String &payload)
 {
 	Serial.println("incoming: " + topic + " - " + payload);
@@ -42,14 +46,6 @@ CloudIoTCoreMqtt *mqtt;
 MQTTClient *mqttClient;
 unsigned long iat = 0;
 String jwt;
-
-///////////////////////////////
-// Helpers specific to this board
-///////////////////////////////
-String getDefaultSensor()
-{
-	return "Wifi: " + String(WiFi.RSSI()) + "db";
-}
 
 String getJwt()
 {
@@ -66,8 +62,8 @@ void setupCloudIoT()
 		private_key_str);
 
 	netClient = new WiFiClientSecure();
-	mqttClient = new MQTTClient(1024);
-	mqttClient->setOptions(180 * 2, true, 1000 * 2); // keepAlive, cleanSession, timeout
+	mqttClient = new MQTTClient(512);
+	mqttClient->setOptions(500, true, 1000); // keepAlive, cleanSession, timeout
 	mqtt = new CloudIoTCoreMqtt(mqttClient, netClient, device);
 	mqtt->setUseLts(true);
 	mqtt->startMQTT();
@@ -96,6 +92,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 
 			if (31 <= paylen)
 			{
+				// TODO: mutex
+				timestamp = time(NULL);
 				temp = (float)((payload[10] << 8) | payload[9]) / 100.0;
 				hum = (float)((payload[12] << 8) | payload[11]) / 100.0;
 				light = (uint16_t)((payload[14] << 8) | payload[13]);
@@ -115,44 +113,88 @@ void ledBlinkingTask(void *arg)
 	pinMode(M5_LED, OUTPUT);
 	while (true)
 	{
-		digitalWrite(M5_LED, LOW);
-		delay(1);
-		digitalWrite(M5_LED, HIGH);
-		delay(4999);
+		if (networkerr)
+		{
+			digitalWrite(M5_LED, LOW);
+			delay(1);
+			digitalWrite(M5_LED, HIGH);
+			delay(249);
+			digitalWrite(M5_LED, LOW);
+			delay(1);
+			digitalWrite(M5_LED, HIGH);
+			delay(249);
+			delay(3500);
+		}
+		else
+		{
+			digitalWrite(M5_LED, LOW);
+			delay(1);
+			digitalWrite(M5_LED, HIGH);
+			delay(4999);
+		}
 	}
 }
 
 void bleScanTask(void *arg)
 {
+	BaseType_t xStatus;
+	const TickType_t xTicksToWait = 5000UL;
+
 	while (true)
 	{
-		bleDetect = false;
-		BLEDevice::getScan()->start(5, false);
+		// xStatus = xSemaphoreTake(xMutexWL, xTicksToWait);
+		// if (xStatus == pdTRUE)
+		{
+			bleDetect = false;
+			BLEDevice::getScan()->start(5, false);
+		}
+		// xSemaphoreGive(xMutexWL);
 		delay(5000);
 	}
 }
 
 void cloudIoTTask(void *arg)
+// void loop()
 {
+	BaseType_t xStatus;
+	const TickType_t xTicksToWait = 5000UL;
+	char message[256];
+
 	while (true)
 	{
-		delay(5000);
-		// mqtt->loop();
-		// delay(10);
-		if (WiFi.status() != WL_CONNECTED)
+		delay(30000);
+		networkerr = false;
+		// xStatus = xSemaphoreTake(xMutexWL, xTicksToWait);
+		// if (xStatus == pdTRUE)
 		{
-			Serial.println("WiFi reconnect");
-			WiFi.begin(wifi_ssid, wifi_key);
-			delay(500);
+			// mqtt->loop();
+			// delay(10);
+			while (WiFi.status() != WL_CONNECTED)
+			{
+				networkerr = true;
+				Serial.println("WiFi reconnect:");
+				WiFi.begin(wifi_ssid, wifi_key);
+				delay(1000);
+				// Serial.println(WiFi.RSSI());
+			}
+			if (!mqttClient->connected())
+			{
+				networkerr = true;
+				Serial.println("cloud IoT reconnect");
+				mqtt->mqttConnect();
+			}
+			int len = snprintf(message, sizeof(message),
+							   "{\"timestamp\":\"%lu\",\"light\":\"%u\",\"temp\":\"%.2f\","
+							   "\"humidity\":\"%.2f\",\"pressure\":\"%.2f\","
+							   "\"eTVOC\":\"%d\",\"eCO2\":\"%d\"}",
+							   timestamp, light, temp, hum, pressure, etvoc, eco2);
+			Serial.print("publish: ");
+			Serial.println(len);
+			Serial.println(message);
+			bool ret = mqtt->publishTelemetry(message, len);
+			Serial.println(ret);
+			// xSemaphoreGive(xMutexWL);
 		}
-		if (!mqttClient->connected())
-		{
-			Serial.println("cloud IoT reconnect");
-			mqtt->mqttConnect();
-		}
-		Serial.print("publish: ");
-		Serial.println(getDefaultSensor());
-		mqtt->publishTelemetry(getDefaultSensor());
 	}
 }
 
@@ -204,6 +246,7 @@ void setup()
 	pBLEScan->setWindow(90);
 	pBLEScan->setActiveScan(true);
 
+	// xMutexWL = xSemaphoreCreateMutex();
 	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink);
 	xTaskCreate(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan);
 	xTaskCreate(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot);
