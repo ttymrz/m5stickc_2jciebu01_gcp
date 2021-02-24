@@ -16,6 +16,7 @@
 static char wifi_ssid[33];
 static char wifi_key[65];
 static char omronSensorAddress[18];
+const auto pubMinutes = {0, 5, 10, 15, 25, 30, 35, 40, 45, 50, 55};
 
 static boolean bleDetect = true;
 static boolean networkerr = false;
@@ -28,7 +29,7 @@ static float pressure;
 static uint16_t etvoc;
 static uint16_t eco2;
 
-SemaphoreHandle_t xMutexWL = NULL;
+SemaphoreHandle_t xMutexData = NULL;
 TaskHandle_t xhandle_blescan = NULL;
 TaskHandle_t xhandle_ledblink = NULL;
 TaskHandle_t xhandle_cloudiot = NULL;
@@ -63,7 +64,7 @@ void setupCloudIoT()
 
 	netClient = new WiFiClientSecure();
 	mqttClient = new MQTTClient(512);
-	mqttClient->setOptions(500, true, 1000); // keepAlive, cleanSession, timeout
+	mqttClient->setOptions(30, true, 10000); // keepAlive 30s, cleanSession, timeout 10s
 	mqtt = new CloudIoTCoreMqtt(mqttClient, netClient, device);
 	mqtt->setUseLts(true);
 	mqtt->startMQTT();
@@ -92,14 +93,19 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 
 			if (31 <= paylen)
 			{
-				// TODO: mutex
-				timestamp = time(NULL);
-				temp = (float)((payload[10] << 8) | payload[9]) / 100.0;
-				hum = (float)((payload[12] << 8) | payload[11]) / 100.0;
-				light = (uint16_t)((payload[14] << 8) | payload[13]);
-				pressure = (float)((payload[18] << 24) | (payload[17] << 16) | (payload[16] << 8) | payload[15]) / 1000.0;
-				etvoc = (uint16_t)((payload[22] << 8) | payload[21]);
-				eco2 = (uint16_t)((payload[24] << 8) | payload[23]);
+				const TickType_t xTicksToWait = 5000UL;
+				BaseType_t xStatus = xSemaphoreTake(xMutexData, xTicksToWait);
+				if (xStatus == pdTRUE)
+				{
+					timestamp = time(NULL);
+					temp = (float)((payload[10] << 8) | payload[9]) / 100.0;
+					hum = (float)((payload[12] << 8) | payload[11]) / 100.0;
+					light = (uint16_t)((payload[14] << 8) | payload[13]);
+					pressure = (float)((payload[18] << 24) | (payload[17] << 16) | (payload[16] << 8) | payload[15]) / 1000.0;
+					etvoc = (uint16_t)((payload[22] << 8) | payload[21]);
+					eco2 = (uint16_t)((payload[24] << 8) | payload[23]);
+				}
+				xSemaphoreGive(xMutexData);
 			}
 
 			BLEDevice::getScan()->stop();
@@ -115,14 +121,13 @@ void ledBlinkingTask(void *arg)
 	{
 		if (networkerr)
 		{
-			digitalWrite(M5_LED, LOW);
-			delay(1);
-			digitalWrite(M5_LED, HIGH);
-			delay(249);
-			digitalWrite(M5_LED, LOW);
-			delay(1);
-			digitalWrite(M5_LED, HIGH);
-			delay(249);
+			for (int i = 0; i < 2; i++)
+			{
+				digitalWrite(M5_LED, LOW);
+				delay(1);
+				digitalWrite(M5_LED, HIGH);
+				delay(249);
+			}
 			delay(3500);
 		}
 		else
@@ -137,24 +142,15 @@ void ledBlinkingTask(void *arg)
 
 void bleScanTask(void *arg)
 {
-	BaseType_t xStatus;
-	const TickType_t xTicksToWait = 5000UL;
-
 	while (true)
 	{
-		// xStatus = xSemaphoreTake(xMutexWL, xTicksToWait);
-		// if (xStatus == pdTRUE)
-		{
-			bleDetect = false;
-			BLEDevice::getScan()->start(5, false);
-		}
-		// xSemaphoreGive(xMutexWL);
+		bleDetect = false;
+		BLEDevice::getScan()->start(5, false);
 		delay(5000);
 	}
 }
 
 void cloudIoTTask(void *arg)
-// void loop()
 {
 	BaseType_t xStatus;
 	const TickType_t xTicksToWait = 5000UL;
@@ -164,36 +160,60 @@ void cloudIoTTask(void *arg)
 	{
 		delay(30000);
 		networkerr = false;
-		// xStatus = xSemaphoreTake(xMutexWL, xTicksToWait);
-		// if (xStatus == pdTRUE)
+
+		// mqtt->loop();
+		// delay(10);
+		while (WiFi.status() != WL_CONNECTED)
 		{
-			// mqtt->loop();
-			// delay(10);
-			while (WiFi.status() != WL_CONNECTED)
+			networkerr = true;
+			Serial.println("WiFi reconnect:");
+			WiFi.disconnect();
+			delay(500);
+			WiFi.begin(wifi_ssid, wifi_key);
+			delay(10000);
+		}
+		struct tm timeInfo;
+		getLocalTime(&timeInfo);
+		bool doPublish = false;
+		Serial.println(String("min: ") + timeInfo.tm_min);
+		for (const auto &e : pubMinutes)
+		{
+			if (e == timeInfo.tm_min)
 			{
-				networkerr = true;
-				Serial.println("WiFi reconnect:");
-				WiFi.begin(wifi_ssid, wifi_key);
-				delay(1000);
-				// Serial.println(WiFi.RSSI());
+				doPublish = true;
 			}
+		}
+		if (doPublish)
+		{
 			if (!mqttClient->connected())
 			{
 				networkerr = true;
 				Serial.println("cloud IoT reconnect");
 				mqtt->mqttConnect();
 			}
-			int len = snprintf(message, sizeof(message),
+			xStatus = xSemaphoreTake(xMutexData, xTicksToWait);
+			int len = 0;
+			if (xStatus == pdTRUE)
+			{
+				len = snprintf(message, sizeof(message),
 							   "{\"timestamp\":\"%lu\",\"light\":\"%u\",\"temp\":\"%.2f\","
 							   "\"humidity\":\"%.2f\",\"pressure\":\"%.2f\","
 							   "\"eTVOC\":\"%d\",\"eCO2\":\"%d\"}",
 							   timestamp, light, temp, hum, pressure, etvoc, eco2);
+			}
+			xSemaphoreGive(xMutexData);
 			Serial.print("publish: ");
-			Serial.println(len);
 			Serial.println(message);
-			bool ret = mqtt->publishTelemetry(message, len);
-			Serial.println(ret);
-			// xSemaphoreGive(xMutexWL);
+			if (0 < len)
+			{
+				bool ret = mqtt->publishTelemetry(message, len);
+				Serial.println(ret);
+				if (!ret)
+				{
+					networkerr = true;
+				}
+			}
+			// mqttClient->disconnect();
 		}
 	}
 }
@@ -233,10 +253,10 @@ void setup()
 	M5.Lcd.println(" CONNECTED");
 
 	configTime(9 * 3600, 0, "ntp.nict.jp"); // Set ntp time to local
-	delay(5000);
+	delay(1000);
 	M5.Lcd.println("Setup CloudIoT");
 	setupCloudIoT();
-	delay(5000);
+	delay(1000);
 
 	M5.Lcd.println("Start BLEScan");
 	BLEDevice::init("");
@@ -246,7 +266,7 @@ void setup()
 	pBLEScan->setWindow(90);
 	pBLEScan->setActiveScan(true);
 
-	// xMutexWL = xSemaphoreCreateMutex();
+	xMutexData = xSemaphoreCreateMutex();
 	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink);
 	xTaskCreate(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan);
 	xTaskCreate(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot);
