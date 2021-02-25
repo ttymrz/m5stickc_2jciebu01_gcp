@@ -34,6 +34,15 @@ TaskHandle_t xhandle_blescan = NULL;
 TaskHandle_t xhandle_ledblink = NULL;
 TaskHandle_t xhandle_cloudiot = NULL;
 
+const int wdtTimeout = 90000; //time in ms to trigger the watchdog
+hw_timer_t *timer = NULL;
+
+void IRAM_ATTR resetModule()
+{
+	ets_printf("reboot\n");
+	esp_restart();
+}
+
 // The MQTT callback function for commands and configuration updates
 void messageReceived(String &topic, String &payload)
 {
@@ -159,6 +168,7 @@ void cloudIoTTask(void *arg)
 	while (true)
 	{
 		delay(30000);
+		timerWrite(timer, 0); //reset timer (feed watchdog)
 		networkerr = false;
 
 		// mqtt->loop();
@@ -273,6 +283,11 @@ void setup()
 	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink);
 	xTaskCreate(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan);
 	xTaskCreate(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot);
+	timer = timerBegin(0, 80, true);				  //timer 0, div 80
+	timerAttachInterrupt(timer, &resetModule, true);  //attach callback
+	timerAlarmWrite(timer, wdtTimeout * 1000, false); //set time in us
+	timerAlarmEnable(timer);						  //enable interrupt
+
 	M5.Lcd.fillScreen(BLACK);
 } // End of setup.
 
