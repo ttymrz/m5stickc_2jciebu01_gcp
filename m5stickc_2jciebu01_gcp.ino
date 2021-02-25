@@ -318,6 +318,9 @@ void loop()
 		M5.Lcd.println("");
 		M5.Lcd.printf("eTVOC: %4d ", etvoc);
 		M5.Lcd.printf("eCO2: %4d", eco2);
+		M5.Lcd.println("");
+		M5.Lcd.print("RSSI: ");
+		M5.Lcd.println(WiFi.RSSI());
 	}
 
 	if (displayoffcount == 1)
