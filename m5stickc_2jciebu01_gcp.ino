@@ -168,8 +168,10 @@ void cloudIoTTask(void *arg)
 			networkerr = true;
 			Serial.println("WiFi reconnect:");
 			WiFi.disconnect();
-			delay(500);
+			// esp_wifi_restore();
+			// delay(500);
 			WiFi.begin(wifi_ssid, wifi_key);
+			// WiFi.reconnect();
 			delay(10000);
 		}
 		struct tm timeInfo;
@@ -224,6 +226,7 @@ void setup()
 	uint8_t mac[6];
 
 	M5.begin();
+	setCpuFrequencyMhz(80);
 	Serial.begin(115200);
 	Serial.println("Starting M5StickC 2JCE-BU1 GCP App...");
 	M5.Axp.ScreenBreath(8);
