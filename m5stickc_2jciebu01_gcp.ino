@@ -293,6 +293,10 @@ void loop()
 		}
 		displayoffcount = 100;
 	}
+	if (M5.BtnB.wasPressed())
+	{
+		esp_restart();
+	}
 
 	if (0 < displayoffcount)
 	{
