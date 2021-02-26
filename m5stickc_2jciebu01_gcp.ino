@@ -270,7 +270,7 @@ void setup()
 	}
 	M5.Lcd.println(" CONNECTED");
 
-	configTime(9 * 3600, 0, "ntp.nict.jp"); // Set ntp time to local
+	configTzTime("JST-9", "ntp.nict.jp"); // Set ntp time to local
 	delay(1000);
 	M5.Lcd.println("Setup CloudIoT");
 	setupCloudIoT();
