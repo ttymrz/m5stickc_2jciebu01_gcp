@@ -250,6 +250,11 @@ void setup()
 	preferences.getString("privatekey", private_key_str, sizeof(private_key_str));
 	preferences.end();
 
+	timer = timerBegin(0, 80, true);				  //timer 0, div 80
+	timerAttachInterrupt(timer, &resetModule, true);  //attach callback
+	timerAlarmWrite(timer, wdtTimeout * 1000, false); //set time in us
+	timerAlarmEnable(timer);						  //enable interrupt
+
 	M5.Lcd.printf("Connecting to %s ", wifi_ssid);
 	WiFi.begin(wifi_ssid, wifi_key);
 	WiFi.macAddress(mac);
@@ -283,10 +288,6 @@ void setup()
 	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink);
 	xTaskCreate(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan);
 	xTaskCreate(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot);
-	timer = timerBegin(0, 80, true);				  //timer 0, div 80
-	timerAttachInterrupt(timer, &resetModule, true);  //attach callback
-	timerAlarmWrite(timer, wdtTimeout * 1000, false); //set time in us
-	timerAlarmEnable(timer);						  //enable interrupt
 
 	M5.Lcd.fillScreen(BLACK);
 } // End of setup.
