@@ -258,11 +258,11 @@ void setup()
 	M5.Lcd.printf("Connecting to %s ", wifi_ssid);
 	WiFi.begin(wifi_ssid, wifi_key);
 	WiFi.macAddress(mac);
-	Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X",
-				  mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+	Serial.printf("MAC: %02x:%02x:%02x:%02x:%02x:%02x",
+				  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	Serial.println("");
-	sprintf(device_id, "m%02X%02X%02X%02X%02X%02X",
-			mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+	sprintf(device_id, "m%02x%02x%02x%02x%02x%02x",
+			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
