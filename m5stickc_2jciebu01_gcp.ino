@@ -155,7 +155,7 @@ void bleScanTask(void *arg)
 	{
 		bleDetect = false;
 		BLEDevice::getScan()->start(5, false);
-		delay(5000);
+		delay(30000);
 	}
 }
 
