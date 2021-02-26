@@ -34,7 +34,7 @@ TaskHandle_t xhandle_blescan = NULL;
 TaskHandle_t xhandle_ledblink = NULL;
 TaskHandle_t xhandle_cloudiot = NULL;
 
-const int wdtTimeout = 90000; //time in ms to trigger the watchdog
+const int wdtTimeout = 120000; //time in ms to trigger the watchdog
 hw_timer_t *timer = NULL;
 
 void IRAM_ATTR resetModule()
