@@ -16,7 +16,8 @@
 static char wifi_ssid[33];
 static char wifi_key[65];
 static char omronSensorAddress[18];
-const auto pubMinutes = {0, 5, 10, 15, 25, 30, 35, 40, 45, 50, 55};
+// const auto pubMinutes = {0, 5, 10, 15, 25, 30, 35, 40, 45, 50, 55};
+const auto pubMinutes = {0, 15, 30, 45};
 
 static boolean bleDetect = true;
 static boolean networkerr = false;
@@ -163,10 +164,13 @@ void cloudIoTTask(void *arg)
 {
 	BaseType_t xStatus;
 	const TickType_t xTicksToWait = 5000UL;
-	char message[256];
+	static auto prevPubMin = 99;
 
 	while (true)
 	{
+		struct tm timeInfo;
+		bool doPublish = false;
+
 		delay(30000);
 		timerWrite(timer, 0); //reset timer (feed watchdog)
 		networkerr = false;
@@ -176,27 +180,28 @@ void cloudIoTTask(void *arg)
 		while (WiFi.status() != WL_CONNECTED)
 		{
 			networkerr = true;
-			Serial.println("WiFi reconnect:");
-			WiFi.disconnect();
-			// esp_wifi_restore();
-			// delay(500);
-			WiFi.begin(wifi_ssid, wifi_key);
+			Serial.println("WiFi disconnection");
+			// Serial.print("WiFi reconnect: ");
+			// Serial.println(WiFi.status());
+			// WiFi.disconnect();
+			// WiFi.begin(wifi_ssid, wifi_key);
 			// WiFi.reconnect();
-			delay(10000);
+			delay(3000);
 		}
-		struct tm timeInfo;
+
 		getLocalTime(&timeInfo);
-		bool doPublish = false;
-		Serial.println(String("min: ") + timeInfo.tm_min);
 		for (const auto &e : pubMinutes)
 		{
-			if (e == timeInfo.tm_min)
+			if (e == timeInfo.tm_min && e != prevPubMin)
 			{
 				doPublish = true;
 			}
 		}
 		if (doPublish)
 		{
+			char message[256];
+
+			prevPubMin = timeInfo.tm_min;
 			if (!mqttClient->connected())
 			{
 				networkerr = true;
@@ -218,10 +223,9 @@ void cloudIoTTask(void *arg)
 			Serial.println(message);
 			if (0 < len)
 			{
-				bool ret = mqtt->publishTelemetry(message, len);
-				Serial.println(ret);
-				if (!ret)
+				if (!(mqtt->publishTelemetry(message, len)))
 				{
+					Serial.println("Publish error");
 					networkerr = true;
 				}
 			}
@@ -282,7 +286,7 @@ void setup()
 	pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
 	pBLEScan->setInterval(100);
 	pBLEScan->setWindow(90);
-	pBLEScan->setActiveScan(true);
+	pBLEScan->setActiveScan(false);
 
 	xMutexData = xSemaphoreCreateMutex();
 	xTaskCreatePinnedToCore(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink, 0);
