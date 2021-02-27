@@ -236,7 +236,7 @@ void setup()
 	uint8_t mac[6];
 
 	M5.begin();
-	setCpuFrequencyMhz(80);
+	// setCpuFrequencyMhz(80);
 	Serial.begin(115200);
 	Serial.println("Starting M5StickC 2JCE-BU1 GCP App...");
 	M5.Axp.ScreenBreath(8);
