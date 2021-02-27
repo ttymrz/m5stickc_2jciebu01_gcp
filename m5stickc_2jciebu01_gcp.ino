@@ -285,9 +285,9 @@ void setup()
 	pBLEScan->setActiveScan(true);
 
 	xMutexData = xSemaphoreCreateMutex();
-	xTaskCreate(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink);
-	xTaskCreate(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan);
-	xTaskCreate(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot);
+	xTaskCreatePinnedToCore(ledBlinkingTask, "ledBlinkingTask", configMINIMAL_STACK_SIZE, NULL, 3, &xhandle_ledblink, 0);
+	xTaskCreatePinnedToCore(bleScanTask, "BLEScanTask", 2048, NULL, 3, &xhandle_blescan, 1);
+	xTaskCreatePinnedToCore(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot, 1);
 
 	M5.Lcd.fillScreen(BLACK);
 } // End of setup.
