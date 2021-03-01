@@ -332,6 +332,8 @@ void loop()
 		{
 			// wake up display and turn on back light
 			M5.Lcd.writecommand(ST7735_SLPOUT);
+			// it is necessary to wait 120msec before sending next command
+			// because of the stabilization timing for the supply voltages and clock circuits.
 			delay(150);
 			M5.Axp.SetLDO2(true);
 		}
