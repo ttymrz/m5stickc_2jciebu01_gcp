@@ -318,7 +318,7 @@ void setup()
 	xTaskCreatePinnedToCore(cloudIoTTask, "cloudIoTTask", 4096, NULL, 3, &xhandle_cloudiot, 1);
 
 	M5.Lcd.fillScreen(BLACK);
-} // End of setup.
+}
 
 // This is the Arduino main loop function.
 void loop()
@@ -385,5 +385,5 @@ void loop()
 		displayoffcount--;
 	}
 
-	delay(100); // Delay a second between loops.
-} // End of loop
+	delay(100);
+}
